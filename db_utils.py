@@ -5,12 +5,15 @@ from .models import OAUTHConfig
 
 class DBUtils:
     DEFAULT_CONFIG = [
-        {"key": "oauth_plugin_enabled", "value": "off"}, # DOESN'T WORK ATM, CTFD NEEDS TO BE RESTARTED TO REFLECT CHANGES
+        {
+            "key": "oauth_plugin_enabled",
+            "value": "off",
+        },  # DOESN'T WORK ATM, CTFD NEEDS TO BE RESTARTED TO REFLECT CHANGES
         {"key": "oauth_client_id", "value": ""},
         {"key": "oauth_client_secret", "value": ""},
         {"key": "oauth_authorization_endpoint", "value": ""},
         {"key": "oauth_token_endpoint", "value": ""},
-        {"key": "oauth_userinfo_url", "value": ""}, 
+        {"key": "oauth_userinfo_url", "value": ""},
         {"key": "oauth_profile_url", "value": ""},
     ]
 

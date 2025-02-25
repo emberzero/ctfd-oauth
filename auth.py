@@ -1,13 +1,14 @@
+from datetime import datetime
+
 import requests
 from CTFd.cache import clear_team_session, clear_user_session
-from CTFd.models import Teams, Users, Brackets, db
+from CTFd.models import Brackets, Teams, Users, db
 from CTFd.utils.config import get_config
 from CTFd.utils.helpers import error_for
 from CTFd.utils.logging import log
 from CTFd.utils.modes import TEAMS_MODE
 from CTFd.utils.security.auth import login_user
 from flask import abort, redirect, request, session, url_for
-from datetime import datetime
 
 from .db_utils import DBUtils
 
@@ -32,7 +33,11 @@ def oauth2_login():
         return redirect(url_for("auth.login"))
 
     redirect_url = "{endpoint}?response_type=code&client_id={client_id}&scope={scope}&state={state}&redirect_uri={redirect_uri}".format(
-        endpoint=endpoint, client_id=client_id, scope=scope, state=session["nonce"], redirect_uri=url_for("oauth2.oauth2_callback", _external=True)
+        endpoint=endpoint,
+        client_id=client_id,
+        scope=scope,
+        state=session["nonce"],
+        redirect_uri=url_for("oauth2.oauth2_callback", _external=True),
     )
     return redirect(redirect_url)
 
@@ -57,7 +62,9 @@ def oauth2_callback():
             "client_id": client_id,
             "client_secret": client_secret,
             "grant_type": "authorization_code",
-            "redirect_uri": url_for("oauth2.oauth2_callback", _external=True), # NO FUCKING IDEA WHY AUTHENTIK NEEDS THIS
+            "redirect_uri": url_for(
+                "oauth2.oauth2_callback", _external=True
+            ),  # NO FUCKING IDEA WHY AUTHENTIK NEEDS THIS
         }
 
         token_request = requests.post(url, data=data, headers=headers)
@@ -71,19 +78,18 @@ def oauth2_callback():
                 "Content-type": "application/json",
             }
 
-        
             api_data = requests.get(url=user_url, headers=headers).json()
 
             user_name = api_data["preferred_username"]
             user_email = api_data["email"]
             user_groups = api_data.get("groups", [])
             user_affiliation = api_data.get("affiliation", "")
-            
+
             user_dob = api_data.get("dob", "")
 
             if user_dob:
                 user_dob = datetime.strptime(user_dob, "%Y-%m-%d").date()
-                
+
                 if user_dob.year >= 2005 and user_dob.year <= 2010:
                     bracket = Brackets.query.filter_by(name="Junior").first()
                 elif user_dob.year >= 2000 and user_dob.year <= 2004:
@@ -163,7 +169,7 @@ def oauth2_callback():
                 user.bracket_id = Brackets.query.filter_by(name="Open").first().id
                 db.session.commit()
                 clear_user_session(user_id=user.id)
-                
+
             login_user(user)
 
             return redirect(url_for("views.static_html"))

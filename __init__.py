@@ -19,12 +19,15 @@ def load(app):
 
     config = DBUtils.get_config()
 
-    set_config('registration_visibility', False)
+    set_config("registration_visibility", False)
 
     if config.get("oauth_plugin_enabled") == "on":
-        app.view_functions['auth.login'] = lambda: redirect(url_for('oauth2.oauth2_login'))
-        app.view_functions['auth.register'] = lambda: ('', 204)
-        app.view_functions['auth.reset_password'] = lambda: ('', 204)
-        app.view_functions['auth.confirm'] = lambda: ('', 204)
-        app.view_functions['views.settings'] = lambda: redirect(config.get("oauth_profile_url"))
-    
+        app.view_functions["auth.login"] = lambda: redirect(
+            url_for("oauth2.oauth2_login")
+        )
+        app.view_functions["auth.register"] = lambda: ("", 204)
+        app.view_functions["auth.reset_password"] = lambda: ("", 204)
+        app.view_functions["auth.confirm"] = lambda: ("", 204)
+        app.view_functions["views.settings"] = lambda: redirect(
+            config.get("oauth_profile_url")
+        )
