@@ -139,7 +139,7 @@ def oauth2_callback():
                 team.members.append(user)
                 db.session.commit()
 
-            if "CTFd Admins" in user_groups and user.type != "admin":
+            if "CLA Admins" in user_groups and user.type != "admin":
                 user.type = "admin"
                 user.hidden = True
                 db.session.commit()
@@ -147,7 +147,7 @@ def oauth2_callback():
                 
             login_user(user)
 
-            return redirect(url_for("challenges.listing"))
+            return redirect(url_for("views.static_html"))
         else:
             log("logins", "[{date}] {ip} - OAuth token retrieval failure")
             error_for(endpoint="auth.login", message="OAuth token retrieval failure.")
