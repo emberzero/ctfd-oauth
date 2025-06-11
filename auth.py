@@ -18,10 +18,9 @@ def oauth2_login():
     endpoint = config.get("oauth_authorization_endpoint")
 
     if get_config("user_mode") == "teams":
-        scope = "profile team"
+        scope = "openid profile email extra team"
     else:
         scope = "openid profile email extra"
-
     client_id = config.get("oauth_client_id")
 
     if client_id is None:
@@ -80,6 +79,8 @@ def oauth2_callback():
 
             api_data = requests.get(url=user_url, headers=headers).json()
 
+            print(api_data, flush=True)
+
             user_name = api_data["preferred_username"]
             user_email = api_data["email"]
             user_groups = api_data.get("groups", [])
@@ -127,10 +128,10 @@ def oauth2_callback():
                 clear_user_session(user_id=user.id)
 
             if get_config("user_mode") == TEAMS_MODE and user.team_id is None:
-                team_id = api_data["team"]["id"]
-                team_name = api_data["team"]["name"]
+                team_id = int(api_data.get("team_id", 0))
+                team_name = api_data.get("team_name", "")
 
-                team = Teams.query.filter_by(oauth_id=team_id).first()
+                team = Teams.query.filter_by(id=team_id).first()
                 if team is None:
                     num_teams_limit = int(get_config("num_teams", default=0))
                     num_teams = Teams.query.filter_by(
@@ -142,7 +143,7 @@ def oauth2_callback():
                             description=f"Reached the maximum number of teams ({num_teams_limit}). Please join an existing team.",
                         )
 
-                    team = Teams(name=team_name, oauth_id=team_id, captain_id=user.id)
+                    team = Teams(id=team_id, name=team_name, captain_id=user.id)
                     db.session.add(team)
                     db.session.commit()
                     clear_team_session(team_id=team.id)
