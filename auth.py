@@ -127,39 +127,6 @@ def oauth2_callback():
                 db.session.commit()
                 clear_user_session(user_id=user.id)
 
-            if get_config("user_mode") == TEAMS_MODE and user.team_id is None:
-                team_id = int(api_data.get("team_id", 0))
-                team_name = api_data.get("team_name", "")
-
-                team = Teams.query.filter_by(id=team_id).first()
-                if team is None:
-                    num_teams_limit = int(get_config("num_teams", default=0))
-                    num_teams = Teams.query.filter_by(
-                        banned=False, hidden=False
-                    ).count()
-                    if num_teams_limit and num_teams >= num_teams_limit:
-                        abort(
-                            403,
-                            description=f"Reached the maximum number of teams ({num_teams_limit}). Please join an existing team.",
-                        )
-
-                    team = Teams(id=team_id, name=team_name, captain_id=user.id)
-                    db.session.add(team)
-                    db.session.commit()
-                    clear_team_session(team_id=team.id)
-
-                team_size_limit = get_config("team_size", default=0)
-                if team_size_limit and len(team.members) >= team_size_limit:
-                    plural = "" if team_size_limit == 1 else "s"
-                    size_error = "Teams are limited to {limit} member{plural}.".format(
-                        limit=team_size_limit, plural=plural
-                    )
-                    error_for(endpoint="auth.login", message=size_error)
-                    return redirect(url_for("auth.login"))
-
-                team.members.append(user)
-                db.session.commit()
-
             if "CTFd Admins" in user_groups and user.type != "admin":
                 user.type = "admin"
                 user.hidden = True
@@ -170,6 +137,46 @@ def oauth2_callback():
                 user.bracket_id = Brackets.query.filter_by(name="Open").first().id
                 db.session.commit()
                 clear_user_session(user_id=user.id)
+
+            if not user.type == "admin":
+                if get_config("user_mode") == TEAMS_MODE and user.team_id is None:
+                    team_id = int(api_data.get("team_id", 0))
+                    team_name = api_data.get("team_name", "")
+
+                    if team_id == 0 or team_name == "":
+                        error_for(
+                            endpoint="auth.login",
+                            message="You must be part of a team to log in.",
+                        )
+                        return redirect(url_for("auth.login"))
+                    team = Teams.query.filter_by(id=team_id).first()
+                    if team is None:
+                        num_teams_limit = int(get_config("num_teams", default=0))
+                        num_teams = Teams.query.filter_by(
+                            banned=False, hidden=False
+                        ).count()
+                        if num_teams_limit and num_teams >= num_teams_limit:
+                            abort(
+                                403,
+                                description=f"Reached the maximum number of teams ({num_teams_limit}). Please join an existing team.",
+                            )
+
+                        team = Teams(id=team_id, name=team_name, captain_id=user.id)
+                        db.session.add(team)
+                        db.session.commit()
+                        clear_team_session(team_id=team.id)
+
+                    team_size_limit = get_config("team_size", default=0)
+                    if team_size_limit and len(team.members) >= team_size_limit:
+                        plural = "" if team_size_limit == 1 else "s"
+                        size_error = "Teams are limited to {limit} member{plural}.".format(
+                            limit=team_size_limit, plural=plural
+                        )
+                        error_for(endpoint="auth.login", message=size_error)
+                        return redirect(url_for("auth.login"))
+
+                    team.members.append(user)
+                db.session.commit()
 
             login_user(user)
 
