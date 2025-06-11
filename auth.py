@@ -138,10 +138,13 @@ def oauth2_callback():
                 db.session.commit()
                 clear_user_session(user_id=user.id)
 
-            if not user.type == "admin":
                 if get_config("user_mode") == TEAMS_MODE and user.team_id is None:
-                    team_id = int(api_data.get("team_id", 0))
-                    team_name = api_data.get("team_name", "")
+                    if user.type == "admin":
+                        team_id = 1337
+                        team_name = "1337 Admin Bande"
+                    else:
+                        team_id = int(api_data.get("team_id", 0))
+                        team_name = api_data.get("team_name", "")
 
                     if team_id == 0 or team_name == "":
                         error_for(
