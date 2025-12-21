@@ -4,6 +4,7 @@
 <div class="jumbotron">
     <div class="container">
         <h1>OAuth Configuration</h1>
+        <p class="lead">Configure OAuth 2.0 / OpenID Connect authentication</p>
     </div>
 </div>
 <div class="container">
@@ -13,12 +14,15 @@
                 <li class="nav-item">
                     <a class="nav-link rounded-0 active" href="#oauth" role="tab" data-toggle="tab">OAuth Settings</a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link rounded-0" href="#advanced" role="tab" data-toggle="tab">Advanced</a>
+                </li>
             </ul>
         </div>
         <div class="col-md-9">
             {% for error in errors %}
-                <div class="alert alert-danger alert-dismissable" role="alert">
-                    <span class="sr-only">Error:</span>
+                <div class="alert {% if 'successful' in error %}alert-success{% else %}alert-danger{% endif %} alert-dismissable" role="alert">
+                    <span class="sr-only">{% if 'successful' in error %}Success{% else %}Error{% endif %}:</span>
                     {{ error }}
                     <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                         <span aria-hidden="true">×</span>
@@ -30,38 +34,206 @@
                 <div class="tab-pane fade show active" id="oauth" role="tabpanel">
                     <form method="POST">
                         <div class="form-group">
-                            <label for="oauth_plugin_enabled">Plugin Status:</label>
+                            <label for="oauth_plugin_enabled">
+                                Plugin Status
+                                <small class="form-text text-muted">Enable or disable OAuth authentication</small>
+                            </label>
                             <select id="oauth_plugin_enabled" name="oauth_plugin_enabled" class="form-control">
-                                <option value="on" {% if config.get('oauth_plugin_enabled') == 'on' %}selected{% endif %}>On</option>
-                                <option value="off" {% if config.get('oauth_plugin_enabled') == 'off' %}selected{% endif %}>Off</option>
+                                <option value="on" {% if config.get('oauth_plugin_enabled') == 'on' %}selected{% endif %}>Enabled</option>
+                                <option value="off" {% if config.get('oauth_plugin_enabled') == 'off' %}selected{% endif %}>Disabled</option>
                             </select>
                         </div>
+
+                        <hr>
+                        <h5>OIDC Discovery (Recommended)</h5>
                         <div class="form-group">
-                            <label for="oauth_client_id">Client ID:</label>
-                            <input type="text" id="oauth_client_id" name="oauth_client_id" class="form-control" value="{{ config.get('oauth_client_id') }}">
+                            <label for="oauth_discovery_url">
+                                Discovery URL
+                                <small class="form-text text-muted">
+                                    OIDC discovery endpoint (e.g., https://idp.example.com/.well-known/openid-configuration)
+                                    <br>If provided, endpoints will be auto-discovered.
+                                </small>
+                            </label>
+                            <input type="url" id="oauth_discovery_url" name="oauth_discovery_url" class="form-control"
+                                   value="{{ config.get('oauth_discovery_url') }}"
+                                   placeholder="https://idp.example.com/.well-known/openid-configuration">
+                        </div>
+
+                        <hr>
+                        <h5>OAuth Client Credentials</h5>
+                        <div class="form-group">
+                            <label for="oauth_client_id">
+                                Client ID
+                                <small class="form-text text-muted">OAuth client identifier from your identity provider</small>
+                            </label>
+                            <input type="text" id="oauth_client_id" name="oauth_client_id" class="form-control"
+                                   value="{{ config.get('oauth_client_id') }}"
+                                   placeholder="your-client-id" required>
                         </div>
                         <div class="form-group">
-                            <label for="oauth_client_secret">Client Secret:</label>
-                            <input type="text" id="oauth_client_secret" name="oauth_client_secret" class="form-control" value="{{ config.get('oauth_client_secret') }}">
+                            <label for="oauth_client_secret">
+                                Client Secret
+                                <small class="form-text text-muted">OAuth client secret (stored securely)</small>
+                            </label>
+                            <input type="password" id="oauth_client_secret" name="oauth_client_secret" class="form-control"
+                                   value="{{ config.get('oauth_client_secret') }}"
+                                   placeholder="your-client-secret" required>
+                            <small class="form-text text-muted">
+                                <input type="checkbox" onclick="document.getElementById('oauth_client_secret').type = this.checked ? 'text' : 'password'">
+                                Show secret
+                            </small>
+                        </div>
+
+                        <hr>
+                        <h5>OAuth Endpoints (Manual Configuration)</h5>
+                        <p class="text-muted">Only required if not using OIDC discovery</p>
+
+                        <div class="form-group">
+                            <label for="oauth_authorization_endpoint">
+                                Authorization Endpoint
+                                <small class="form-text text-muted">URL where users are redirected to login</small>
+                            </label>
+                            <input type="url" id="oauth_authorization_endpoint" name="oauth_authorization_endpoint" class="form-control"
+                                   value="{{ config.get('oauth_authorization_endpoint') }}"
+                                   placeholder="https://idp.example.com/oauth2/authorize">
                         </div>
                         <div class="form-group">
-                            <label for="oauth_authorization_endpoint">Authorization Endpoint:</label>
-                            <input type="text" id="oauth_authorization_endpoint" name="oauth_authorization_endpoint" class="form-control" value="{{ config.get('oauth_authorization_endpoint') }}">
+                            <label for="oauth_token_endpoint">
+                                Token Endpoint
+                                <small class="form-text text-muted">URL to exchange authorization code for access token</small>
+                            </label>
+                            <input type="url" id="oauth_token_endpoint" name="oauth_token_endpoint" class="form-control"
+                                   value="{{ config.get('oauth_token_endpoint') }}"
+                                   placeholder="https://idp.example.com/oauth2/token">
                         </div>
                         <div class="form-group">
-                            <label for="oauth_token_endpoint">Token Endpoint:</label>
-                            <input type="text" id="oauth_token_endpoint" name="oauth_token_endpoint" class="form-control" value="{{ config.get('oauth_token_endpoint') }}">
+                            <label for="oauth_userinfo_url">
+                                UserInfo Endpoint
+                                <small class="form-text text-muted">URL to fetch user profile information</small>
+                            </label>
+                            <input type="url" id="oauth_userinfo_url" name="oauth_userinfo_url" class="form-control"
+                                   value="{{ config.get('oauth_userinfo_url') }}"
+                                   placeholder="https://idp.example.com/oauth2/userinfo">
+                        </div>
+
+                        <hr>
+                        <h5>Additional URLs</h5>
+                        <div class="form-group">
+                            <label for="oauth_profile_url">
+                                Profile URL (Optional)
+                                <small class="form-text text-muted">External URL for users to manage their profile. If set, CTFd settings page redirects here.</small>
+                            </label>
+                            <input type="url" id="oauth_profile_url" name="oauth_profile_url" class="form-control"
+                                   value="{{ config.get('oauth_profile_url') }}"
+                                   placeholder="https://idp.example.com/profile">
                         </div>
                         <div class="form-group">
-                            <label for="oauth_userinfo_url">User Info URL:</label>
-                            <input type="text" id="oauth_userinfo_url" name="oauth_userinfo_url" class="form-control" value="{{ config.get('oauth_userinfo_url') }}">
+                            <label for="oauth_logout_url">
+                                Logout URL (Optional)
+                                <small class="form-text text-muted">URL to logout from the identity provider</small>
+                            </label>
+                            <input type="url" id="oauth_logout_url" name="oauth_logout_url" class="form-control"
+                                   value="{{ config.get('oauth_logout_url') }}"
+                                   placeholder="https://idp.example.com/oauth2/logout">
                         </div>
-                        <div class="form-group">
-                            <label for="oauth_profile_url">Profile URL:</label>
-                            <input type="text" id="oauth_profile_url" name="oauth_profile_url" class="form-control" value="{{ config.get('oauth_profile_url') }}">
-                        </div>
+
                         <input type="hidden" name="nonce" id="nonce" value="{{ Session.nonce }}">
-                        <button type="submit" class="btn btn-md btn-primary float-right">Update</button>
+                        <button type="submit" class="btn btn-md btn-primary float-right">Save Configuration</button>
+                    </form>
+                </div>
+
+                <div class="tab-pane fade" id="advanced" role="tabpanel">
+                    <form method="POST">
+                        <h5>Scope Configuration</h5>
+                        <div class="form-group">
+                            <label for="oauth_scope">
+                                OAuth Scope
+                                <small class="form-text text-muted">
+                                    Space-separated list of scopes to request. Leave empty for defaults.
+                                    <br>Default (Individual): <code>openid profile email</code>
+                                    <br>Default (Teams): <code>profile team</code>
+                                </small>
+                            </label>
+                            <input type="text" id="oauth_scope" name="oauth_scope" class="form-control"
+                                   value="{{ config.get('oauth_scope') }}"
+                                   placeholder="openid profile email">
+                        </div>
+
+                        <hr>
+                        <h5>Claim Mapping</h5>
+                        <p class="text-muted">Configure how user attributes are mapped from OAuth claims</p>
+
+                        <div class="form-group">
+                            <label for="oauth_claim_preferred_username">
+                                Username Claim
+                                <small class="form-text text-muted">Claim containing the username (default: preferred_username)</small>
+                            </label>
+                            <input type="text" id="oauth_claim_preferred_username" name="oauth_claim_preferred_username" class="form-control"
+                                   value="{{ config.get('oauth_claim_preferred_username', 'preferred_username') }}"
+                                   placeholder="preferred_username">
+                        </div>
+                        <div class="form-group">
+                            <label for="oauth_claim_email">
+                                Email Claim
+                                <small class="form-text text-muted">Claim containing the email address (default: email)</small>
+                            </label>
+                            <input type="text" id="oauth_claim_email" name="oauth_claim_email" class="form-control"
+                                   value="{{ config.get('oauth_claim_email', 'email') }}"
+                                   placeholder="email">
+                        </div>
+                        <div class="form-group">
+                            <label for="oauth_claim_affiliation">
+                                Affiliation Claim
+                                <small class="form-text text-muted">Claim containing user affiliation (default: affiliation)</small>
+                            </label>
+                            <input type="text" id="oauth_claim_affiliation" name="oauth_claim_affiliation" class="form-control"
+                                   value="{{ config.get('oauth_claim_affiliation', 'affiliation') }}"
+                                   placeholder="affiliation">
+                        </div>
+
+                        <hr>
+                        <h5>Security Settings</h5>
+
+                        <div class="form-group">
+                            <label for="oauth_enable_pkce">
+                                Enable PKCE
+                                <small class="form-text text-muted">
+                                    Proof Key for Code Exchange (PKCE) adds extra security to OAuth flow.
+                                    <br>Disable only if your provider doesn't support it (rare).
+                                </small>
+                            </label>
+                            <select id="oauth_enable_pkce" name="oauth_enable_pkce" class="form-control">
+                                <option value="on" {% if config.get('oauth_enable_pkce', 'on') == 'on' %}selected{% endif %}>Enabled (Recommended)</option>
+                                <option value="off" {% if config.get('oauth_enable_pkce') == 'off' %}selected{% endif %}>Disabled</option>
+                            </select>
+                        </div>
+
+                        <hr>
+                        <h5>Admin & Team Settings</h5>
+
+                        <div class="form-group">
+                            <label for="oauth_admin_group">
+                                Admin Group Name
+                                <small class="form-text text-muted">Users in this OAuth group will be promoted to CTFd admins</small>
+                            </label>
+                            <input type="text" id="oauth_admin_group" name="oauth_admin_group" class="form-control"
+                                   value="{{ config.get('oauth_admin_group', 'CTFd Admins') }}"
+                                   placeholder="CTFd Admins">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="oauth_sync_teams">
+                                Sync Team Membership
+                                <small class="form-text text-muted">Automatically update team membership from OAuth on each login</small>
+                            </label>
+                            <select id="oauth_sync_teams" name="oauth_sync_teams" class="form-control">
+                                <option value="on" {% if config.get('oauth_sync_teams') == 'on' %}selected{% endif %}>Enabled</option>
+                                <option value="off" {% if config.get('oauth_sync_teams') == 'off' %}selected{% endif %}>Disabled</option>
+                            </select>
+                        </div>
+
+                        <input type="hidden" name="nonce" id="nonce" value="{{ Session.nonce }}">
+                        <button type="submit" class="btn btn-md btn-primary float-right">Save Configuration</button>
                     </form>
                 </div>
             </div>
