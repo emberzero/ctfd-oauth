@@ -5,7 +5,7 @@ from urllib.parse import urlencode
 
 import requests
 from CTFd.cache import clear_team_session, clear_user_session
-from CTFd.models import Teams, Users, db
+from CTFd.models import Brackets, Teams, Users, db
 from CTFd.utils.config import get_config
 from CTFd.utils.helpers import error_for
 from CTFd.utils.logging import log
@@ -231,6 +231,14 @@ def create_or_update_user(api_data: Dict[str, Any]) -> Optional[Users]:
         )
         return None
 
+    # Get or create bracket if provided (for user mode)
+    bracket_id = None
+    bracket_name = api_data.get("bracket")
+    if bracket_name:
+        bracket = get_or_create_bracket(bracket_name, bracket_type="users")
+        if bracket:
+            bracket_id = bracket.id
+
     user = Users.query.filter_by(email=user_email).first()
 
     if user is None:
@@ -250,6 +258,7 @@ def create_or_update_user(api_data: Dict[str, Any]) -> Optional[Users]:
             email=user_email,
             verified=True,
             affiliation=user_affiliation,
+            bracket_id=bracket_id,
         )
 
         db.session.add(user)
@@ -261,6 +270,15 @@ def create_or_update_user(api_data: Dict[str, Any]) -> Optional[Users]:
         # Email changes should be handled carefully to prevent account takeover
         user.name = user_name
         user.affiliation = user_affiliation
+
+        # Always sync bracket from OAuth (OAuth is source of truth)
+        if bracket_id is not None and user.bracket_id != bracket_id:
+            user.bracket_id = bracket_id
+            log(
+                "logins",
+                f"[{{date}}] {{ip}} - User bracket updated via OAuth: {user_email}",
+            )
+
         db.session.commit()
         clear_user_session(user_id=user.id)
         log(
@@ -269,6 +287,31 @@ def create_or_update_user(api_data: Dict[str, Any]) -> Optional[Users]:
         )
 
     return user
+
+
+def get_or_create_bracket(bracket_name: str, bracket_type: str = "teams") -> Optional[Brackets]:
+    """Get or create a bracket by name and type."""
+    if not bracket_name:
+        return None
+
+    # Look up existing bracket by name (case-insensitive) and type
+    bracket = Brackets.query.filter(
+        db.func.lower(Brackets.name) == bracket_name.lower(),
+        Brackets.type == bracket_type
+    ).first()
+
+    if bracket is None:
+        # Create new bracket
+        bracket = Brackets(
+            name=bracket_name,
+            type=bracket_type,
+            description=f"Auto-created from OAuth for {bracket_name}"
+        )
+        db.session.add(bracket)
+        db.session.commit()
+        log("logins", f"[{{date}}] {{ip}} - New {bracket_type} bracket created via OAuth: {bracket_name}")
+
+    return bracket
 
 
 def handle_team_assignment(user: Users, api_data: Dict[str, Any]) -> bool:
@@ -284,10 +327,19 @@ def handle_team_assignment(user: Users, api_data: Dict[str, Any]) -> bool:
             team_data = api_data.get("team")
             if team_data:
                 team_id = team_data.get("id")
-                team = Teams.query.filter_by(oauth_id=team_id).first()
+                team = Teams.query.filter_by(id=team_id).first()
                 if team and team.id != user.team_id:
                     user.team_id = team.id
                     db.session.commit()
+
+                # Also sync bracket if provided
+                bracket_name = team_data.get("bracket")
+                if bracket_name and team:
+                    bracket = get_or_create_bracket(bracket_name)
+                    if bracket and team.bracket_id != bracket.id:
+                        team.bracket_id = bracket.id
+                        db.session.commit()
+                        clear_team_session(team_id=team.id)
         return True
 
     team_data = api_data.get("team")
@@ -302,7 +354,7 @@ def handle_team_assignment(user: Users, api_data: Dict[str, Any]) -> bool:
         log("logins", "[{date}] {ip} - OAuth team data incomplete")
         return False
 
-    team = Teams.query.filter_by(oauth_id=team_id).first()
+    team = Teams.query.filter_by(id=team_id).first()
 
     if team is None:
         num_teams_limit = int(get_config("num_teams", default=0))
@@ -315,7 +367,15 @@ def handle_team_assignment(user: Users, api_data: Dict[str, Any]) -> bool:
                 description=f"Reached the maximum number of teams ({num_teams_limit}). Please join an existing team.",
             )
 
-        team = Teams(name=team_name, oauth_id=team_id, captain_id=user.id)
+        # Get or create bracket if provided
+        bracket_id = None
+        bracket_name = team_data.get("bracket")
+        if bracket_name:
+            bracket = get_or_create_bracket(bracket_name)
+            if bracket:
+                bracket_id = bracket.id
+
+        team = Teams(id=team_id,name=team_name, captain_id=user.id, bracket_id=bracket_id)
         db.session.add(team)
         db.session.commit()
         clear_team_session(team_id=team.id)
