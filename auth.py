@@ -43,7 +43,8 @@ def generate_pkce_pair() -> tuple[str, str]:
     """Generate PKCE code verifier and challenge."""
     code_verifier = secrets.token_urlsafe(64)
     code_challenge = hashlib.sha256(code_verifier.encode()).digest()
-    code_challenge = code_challenge.hex()
+    import base64
+    code_challenge = base64.urlsafe_b64encode(code_challenge).rstrip(b"=").decode("ascii")
     return code_verifier, code_challenge
 
 
