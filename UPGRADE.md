@@ -1,5 +1,44 @@
 # Upgrade Guide
 
+## Upgrading to OIDC Subject Linking
+
+Identity is now keyed on `(issuer, sub)` rather than email. This closes an
+account-takeover vulnerability and makes logins survive IdP email changes.
+
+### What changes automatically
+
+- A new `oauth_user_link` table is created on plugin load. No manual migration.
+- The team-mode default scope becomes `openid profile team` (was `profile team`)
+  so the IdP returns the `sub` claim. Custom `oauth_scope` values are unchanged —
+  if you set one, make sure it includes `openid`.
+- The new config keys `oauth_issuer`, `oauth_claim_sub`, and
+  `oauth_link_existing_by_email` are added with safe defaults.
+
+### Migration window
+
+`oauth_link_existing_by_email` defaults to `on`. While it is on, the **first**
+OAuth login for a given email will claim the matching pre-existing CTFd user
+and bind it to that IdP `sub`. Subsequent logins from a different `sub` for the
+same email are rejected.
+
+After your existing users have all logged in at least once, switch
+`oauth_link_existing_by_email` to **off** under
+**Admin Panel → OAuth Configuration → Advanced → Identity Linking**. With it
+off, an OAuth login whose email matches an unlinked existing CTFd account is
+rejected with a clear error rather than silently claiming the account.
+
+### Watch for
+
+- **Logins rejected with "missing 'sub' claim"** — your IdP isn't returning
+  `sub`. Verify your scope includes `openid`, or set `oauth_claim_sub` under
+  Advanced if the provider uses a different identifier (e.g. GitHub's `id`).
+- **Multiple IdPs / IdP migration** — the link is keyed on `(issuer, sub)`, so
+  ensure `oauth_issuer` is set correctly (auto-populated from discovery, or
+  enter manually). If unset, the plugin falls back to the authorization
+  endpoint's origin.
+
+---
+
 ## Upgrading from Version 1.0 to 2.0
 
 Version 2.0 includes significant improvements to security, features, and code quality. This guide will help you upgrade safely.

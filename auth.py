@@ -2,7 +2,7 @@ import base64
 import hashlib
 import secrets
 from typing import Any, Callable, Dict, Optional
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 import requests
 from CTFd.cache import clear_team_session, clear_user_session
@@ -17,6 +17,7 @@ from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
 from .db_utils import DBUtils
+from .models import OAUTHUserLink
 
 # Constants
 REQUEST_TIMEOUT = 10  # seconds
@@ -65,9 +66,9 @@ def oauth2_login() -> Any:
         )
         return redirect(url_for("auth.login"))
 
-    # Determine scope based on user mode
+    # `openid` is required so the IdP returns the `sub` claim used for identity linking.
     if get_config("user_mode") == TEAMS_MODE:
-        default_scope = "profile team"
+        default_scope = "openid profile team"
     else:
         default_scope = "openid profile email"
 
@@ -221,11 +222,32 @@ def get_claim_value(
     return api_data.get(mapped_claim, default)
 
 
+def _resolve_issuer(config: Dict[str, str]) -> str:
+    """Resolve the OIDC issuer for identity linking, with a stable fallback."""
+    issuer = config.get("oauth_issuer") or ""
+    if issuer:
+        return issuer
+    authz = config.get("oauth_authorization_endpoint") or ""
+    if authz:
+        parsed = urlparse(authz)
+        if parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme else parsed.netloc
+    return "unknown"
+
+
 def create_or_update_user(api_data: Dict[str, Any]) -> Optional[Users]:
-    """Create a new user or update existing user from OAuth data."""
+    """Create a new user or update existing user from OAuth data.
+
+    Identity is keyed on (issuer, sub) via OAUTHUserLink — email is a
+    syncable attribute, not an identity key. This prevents email-collision
+    account takeovers and keeps logins stable across IdP email changes.
+    """
+    config = DBUtils.get_config()
+
     user_name = get_claim_value(api_data, "preferred_username")
     user_email = get_claim_value(api_data, "email")
     user_affiliation = get_claim_value(api_data, "affiliation", "")
+    sub = get_claim_value(api_data, "sub")
 
     if not user_name or not user_email:
         log(
@@ -233,6 +255,15 @@ def create_or_update_user(api_data: Dict[str, Any]) -> Optional[Users]:
             "[{date}] {ip} - OAuth userinfo missing required fields (username or email)",
         )
         return None
+
+    if not sub:
+        log(
+            "logins",
+            "[{date}] {ip} - OAuth userinfo missing 'sub' claim; refusing login",
+        )
+        return None
+
+    iss = _resolve_issuer(config)
 
     # Get or create bracket if provided (for user mode)
     bracket_id = None
@@ -242,7 +273,45 @@ def create_or_update_user(api_data: Dict[str, Any]) -> Optional[Users]:
         if bracket:
             bracket_id = bracket.id
 
-    user = Users.query.filter_by(email=user_email).first()
+    link = OAUTHUserLink.query.filter_by(issuer=iss, sub=sub).first()
+    user: Optional[Users] = None
+    link_existing_by_email = config.get("oauth_link_existing_by_email", "on") == "on"
+
+    if link:
+        user = Users.query.filter_by(id=link.user_id).first()
+        if user is None:
+            # FK CASCADE should have removed the link when the user was deleted,
+            # but if we somehow have a dangling link, drop it and treat as new.
+            db.session.delete(link)
+            db.session.commit()
+            link = None
+
+    if user is None:
+        candidate = Users.query.filter_by(email=user_email).first()
+        if candidate is not None:
+            already_linked = OAUTHUserLink.query.filter_by(
+                user_id=candidate.id
+            ).first()
+            if already_linked:
+                log(
+                    "logins",
+                    f"[{{date}}] {{ip}} - OAuth login rejected: email {user_email} already linked to a different sub",
+                )
+                return None
+            if not link_existing_by_email:
+                log(
+                    "logins",
+                    f"[{{date}}] {{ip}} - OAuth login rejected: email {user_email} already in use; email-linking disabled",
+                )
+                return None
+            user = candidate
+            db.session.add(
+                OAUTHUserLink(issuer=iss, sub=sub, user_id=user.id)
+            )
+            log(
+                "logins",
+                f"[{{date}}] {{ip}} - OAuth linked existing user {user_email} to (iss={iss}, sub={sub})",
+            )
 
     if user is None:
         # Respect the user count limit
@@ -265,22 +334,28 @@ def create_or_update_user(api_data: Dict[str, Any]) -> Optional[Users]:
         )
 
         db.session.add(user)
+        db.session.flush()
+        db.session.add(
+            OAUTHUserLink(issuer=iss, sub=sub, user_id=user.id)
+        )
         db.session.commit()
         log("logins", f"[{{date}}] {{ip}} - New user created via OAuth: {user_email}")
-
     else:
-        # Update user info (except email for security)
-        # Email changes should be handled carefully to prevent account takeover
+        # Identity is bound to (iss, sub), so email/name/affiliation are safe to sync.
         user.name = user_name
+        user.email = user_email
         user.affiliation = user_affiliation
 
-        # Always sync bracket from OAuth (OAuth is source of truth)
         if bracket_id is not None and user.bracket_id != bracket_id:
             user.bracket_id = bracket_id
             log(
                 "logins",
                 f"[{{date}}] {{ip}} - User bracket updated via OAuth: {user_email}",
             )
+
+        link_row = OAUTHUserLink.query.filter_by(issuer=iss, sub=sub).first()
+        if link_row is not None:
+            link_row.last_login_at = db.func.current_timestamp()
 
         db.session.commit()
         clear_user_session(user_id=user.id)

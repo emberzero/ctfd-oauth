@@ -58,6 +58,18 @@
                                    value="{{ config.get('oauth_discovery_url') }}"
                                    placeholder="https://idp.example.com/.well-known/openid-configuration">
                         </div>
+                        <div class="form-group">
+                            <label for="oauth_issuer">
+                                Issuer (Optional)
+                                <small class="form-text text-muted">
+                                    OIDC issuer URL. Auto-populated from discovery; set manually if not using discovery.
+                                    Used together with the <code>sub</code> claim to identify users — leave blank to fall back to the authorization endpoint's origin.
+                                </small>
+                            </label>
+                            <input type="text" id="oauth_issuer" name="oauth_issuer" class="form-control"
+                                   value="{{ config.get('oauth_issuer') }}"
+                                   placeholder="https://idp.example.com/">
+                        </div>
 
                         <hr>
                         <h5>OAuth Client Credentials</h5>
@@ -189,6 +201,36 @@
                             <input type="text" id="oauth_claim_affiliation" name="oauth_claim_affiliation" class="form-control"
                                    value="{{ config.get('oauth_claim_affiliation', 'affiliation') }}"
                                    placeholder="affiliation">
+                        </div>
+                        <div class="form-group">
+                            <label for="oauth_claim_sub">
+                                Subject Claim
+                                <small class="form-text text-muted">
+                                    Claim containing the stable, unique user identifier (default: <code>sub</code>).
+                                    For non-OIDC providers, remap to the provider's user ID claim (e.g. <code>id</code> for GitHub).
+                                </small>
+                            </label>
+                            <input type="text" id="oauth_claim_sub" name="oauth_claim_sub" class="form-control"
+                                   value="{{ config.get('oauth_claim_sub', 'sub') }}"
+                                   placeholder="sub">
+                        </div>
+
+                        <hr>
+                        <h5>Identity Linking</h5>
+
+                        <div class="form-group">
+                            <label for="oauth_link_existing_by_email">
+                                Link Existing Users by Email
+                                <small class="form-text text-muted">
+                                    Allows an OAuth login to claim a pre-existing CTFd account that has the same email but no OAuth link yet.
+                                    Enable during upgrade so legacy accounts auto-bind on first OAuth login.
+                                    <strong>Turn off</strong> in high-trust deployments once all users have logged in at least once — disabling closes an account-takeover window where an IdP user with a matching email could otherwise claim a CTFd account.
+                                </small>
+                            </label>
+                            <select id="oauth_link_existing_by_email" name="oauth_link_existing_by_email" class="form-control">
+                                <option value="on" {% if config.get('oauth_link_existing_by_email', 'on') == 'on' %}selected{% endif %}>Enabled (Upgrade Mode)</option>
+                                <option value="off" {% if config.get('oauth_link_existing_by_email') == 'off' %}selected{% endif %}>Disabled (Strict)</option>
+                            </select>
                         </div>
 
                         <hr>
