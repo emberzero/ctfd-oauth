@@ -23,10 +23,14 @@ class DBUtils:
         {"key": "oauth_enable_pkce", "value": "off"},
         # OIDC Discovery
         {"key": "oauth_discovery_url", "value": ""},
+        {"key": "oauth_issuer", "value": ""},
         # Claim mappings (for non-standard claim names)
         {"key": "oauth_claim_preferred_username", "value": "preferred_username"},
         {"key": "oauth_claim_email", "value": "email"},
         {"key": "oauth_claim_affiliation", "value": "affiliation"},
+        {"key": "oauth_claim_sub", "value": "sub"},
+        # Identity linking
+        {"key": "oauth_link_existing_by_email", "value": "on"},
     ]
 
     @staticmethod
@@ -162,6 +166,7 @@ class DBUtils:
                 "oauth_token_endpoint": discovery_doc.get("token_endpoint", ""),
                 "oauth_userinfo_url": discovery_doc.get("userinfo_endpoint", ""),
                 "oauth_logout_url": discovery_doc.get("end_session_endpoint", ""),
+                "oauth_issuer": discovery_doc.get("issuer", ""),
             }
 
         except Exception:
