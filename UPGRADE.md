@@ -1,6 +1,6 @@
 # Upgrade Guide
 
-## Upgrading to OIDC Subject Linking
+## Upgrading from 2.0 to 2.1 (OIDC Subject Linking)
 
 Identity is now keyed on `(issuer, sub)` rather than email. This closes an
 account-takeover vulnerability and makes logins survive IdP email changes.
@@ -11,8 +11,12 @@ account-takeover vulnerability and makes logins survive IdP email changes.
 - The team-mode default scope becomes `openid profile team` (was `profile team`)
   so the IdP returns the `sub` claim. Custom `oauth_scope` values are unchanged —
   if you set one, make sure it includes `openid`.
-- The new config keys `oauth_issuer`, `oauth_claim_sub`, and
-  `oauth_link_existing_by_email` are added with safe defaults.
+- The new config keys `oauth_issuer`, `oauth_claim_sub`,
+  `oauth_link_existing_by_email`, and `oauth_sync_brackets` are added with safe defaults.
+- Logins where the IdP sends `email_verified: false` are now rejected.
+- **Bracket sync is now opt-in.** `oauth_sync_brackets` defaults to `off`; if
+  you rely on the `bracket` claim (e.g. ACSC), set **Sync Brackets** to
+  **Enabled** under **Advanced → Admin & Team Settings** after upgrading.
 
 ### Migration window
 

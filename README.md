@@ -9,6 +9,8 @@ A comprehensive OAuth 2.0 / OpenID Connect (OIDC) authentication plugin for CTFd
 - ✅ **PKCE Support** - Enhanced security with Proof Key for Code Exchange
 - ✅ **OIDC Discovery** - Auto-configure endpoints from discovery URL
 - ✅ **Team Mode Support** - Automatic team creation and management
+- ✅ **OIDC Subject Linking** - Users are identified by `(issuer, sub)`, not email
+- ✅ **Bracket Sync** - Optional bracket assignment from a `bracket` claim
 - ✅ **Admin Auto-Promotion** - Grant admin privileges based on group membership
 - ✅ **Configurable Claim Mapping** - Map non-standard claim names
 - ✅ **Session Management** - Proper logout handling with provider
@@ -162,6 +164,26 @@ Users with this group in their `groups` claim will automatically become CTFd adm
 
 Enable **Sync Team Membership** in the **Advanced** tab to automatically update team assignments on each login.
 
+### Bracket Synchronization
+
+Enable **Sync Brackets** in the **Advanced** tab (default off) to assign brackets from the IdP. Missing brackets are created automatically (matched case-insensitively).
+
+- **User mode:** a top-level `bracket` claim sets the user's bracket.
+- **Team mode:** `team.bracket` sets the team's bracket on creation, and on every login when team sync is also enabled.
+
+```json
+{ "bracket": "Junior" }
+{ "team": { "id": "team-123", "name": "Team Awesome", "bracket": "Open" } }
+```
+
+### Identity Linking
+
+Users are bound to their IdP identity via the `oauth_user_link` table, keyed on `(issuer, sub)`. Email, username and affiliation are synced from the IdP on each login.
+
+- The `sub` claim is required (remap with **Subject Claim** for non-OIDC providers, e.g. `id` for GitHub). Logins without it are rejected.
+- Logins where the IdP sends `email_verified: false` are rejected.
+- **Link Existing Users by Email** (default on) lets a pre-existing CTFd account bind to its IdP identity on first login. Turn it off once all users have logged in. See [UPGRADE.md](UPGRADE.md).
+
 ## Team Mode
 
 When CTFd is in team mode, the plugin expects the userinfo endpoint to return a `team` object:
@@ -275,6 +297,13 @@ All authentication events are logged:
 - Verify userinfo returns `team` object with `id` and `name`
 - Check logs for team creation messages
 
+### Error: Login rejected (sub / email_verified / email already linked)
+
+**Solution:**
+- Missing `sub`: make sure the scope includes `openid`, or set **Subject Claim**
+- `email_verified: false`: the user must verify their email at the IdP
+- Email already linked or in use: another IdP identity already owns that CTFd account, or **Link Existing Users by Email** is off
+
 ## Plugin Structure
 
 ```
@@ -313,6 +342,9 @@ All configuration is stored in the `OAUTHConfig` database table:
 | `oauth_claim_preferred_username` | Username claim mapping | No |
 | `oauth_claim_email` | Email claim mapping | No |
 | `oauth_claim_affiliation` | Affiliation claim mapping | No |
+| `oauth_claim_sub` | Subject (user ID) claim mapping (default `sub`) | No |
+| `oauth_issuer` | OIDC issuer (auto-filled by discovery) | No |
+| `oauth_link_existing_by_email` | Bind existing CTFd users by email on first login (default `on`) | No |
 
 \* Either `oauth_discovery_url` OR all three manual endpoints are required.
 
@@ -366,7 +398,21 @@ For issues and questions:
 
 ## Changelog
 
-### Version 2.0.0 (Current)
+### Version 2.1.0 (Current)
+
+**Security Improvements:**
+- ✅ User identity keyed on OIDC `(issuer, sub)` instead of email (fixes email-collision account takeover)
+- ✅ Reject logins with `email_verified: false`
+- ✅ Fail closed when `sub` is missing
+
+**Features:**
+- ✅ Configurable bracket sync (`oauth_sync_brackets`, default off)
+- ✅ Email changes at the IdP are synced instead of orphaning accounts
+- ✅ Issuer and subject claim configuration
+
+See [CHANGELOG.md](CHANGELOG.md) and [UPGRADE.md](UPGRADE.md).
+
+### Version 2.0.0
 
 **Security Improvements:**
 - ✅ Added PKCE support

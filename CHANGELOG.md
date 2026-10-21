@@ -2,7 +2,7 @@
 
 All notable changes to the CTFd OAuth Plugin are documented in this file.
 
-## [Unreleased]
+## [2.1.0] - 2026-10-21
 
 ### 🔒 Security
 
