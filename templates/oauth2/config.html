@@ -274,6 +274,17 @@
                             </select>
                         </div>
 
+                        <div class="form-group">
+                            <label for="oauth_sync_brackets">
+                                Sync Brackets
+                                <small class="form-text text-muted">Assign users/teams to brackets from the OAuth <code>bracket</code> claim (created if missing) on each login</small>
+                            </label>
+                            <select id="oauth_sync_brackets" name="oauth_sync_brackets" class="form-control">
+                                <option value="on" {% if config.get('oauth_sync_brackets') == 'on' %}selected{% endif %}>Enabled</option>
+                                <option value="off" {% if config.get('oauth_sync_brackets', 'off') == 'off' %}selected{% endif %}>Disabled</option>
+                            </select>
+                        </div>
+
                         <input type="hidden" name="nonce" id="nonce" value="{{ Session.nonce }}">
                         <button type="submit" class="btn btn-md btn-primary float-right">Save Configuration</button>
                     </form>

@@ -263,11 +263,21 @@ def create_or_update_user(api_data: Dict[str, Any]) -> Optional[Users]:
         )
         return None
 
+    # Reject only an explicit false; IdPs that omit the claim (e.g. no `email` scope) still log in.
+    # Some IdPs (e.g. Cognito) send it as a string.
+    if str(api_data.get("email_verified", True)).lower() == "false":
+        log(
+            "logins",
+            f"[{{date}}] {{ip}} - OAuth login rejected: email {user_email} not verified at IdP",
+        )
+        return None
+
     iss = _resolve_issuer(config)
+    sync_brackets = config.get("oauth_sync_brackets") == "on"
 
     # Get or create bracket if provided (for user mode)
     bracket_id = None
-    bracket_name = api_data.get("bracket")
+    bracket_name = api_data.get("bracket") if sync_brackets else None
     if bracket_name:
         bracket = get_or_create_bracket(bracket_name, bracket_type="users")
         if bracket:
@@ -412,7 +422,7 @@ def handle_team_assignment(user: Users, api_data: Dict[str, Any]) -> bool:
 
                 # Also sync bracket if provided
                 bracket_name = team_data.get("bracket")
-                if bracket_name and team:
+                if bracket_name and team and config.get("oauth_sync_brackets") == "on":
                     bracket = get_or_create_bracket(bracket_name)
                     if bracket and team.bracket_id != bracket.id:
                         team.bracket_id = bracket.id
@@ -448,7 +458,7 @@ def handle_team_assignment(user: Users, api_data: Dict[str, Any]) -> bool:
         # Get or create bracket if provided
         bracket_id = None
         bracket_name = team_data.get("bracket")
-        if bracket_name:
+        if bracket_name and DBUtils.get_config().get("oauth_sync_brackets") == "on":
             bracket = get_or_create_bracket(bracket_name)
             if bracket:
                 bracket_id = bracket.id

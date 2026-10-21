@@ -309,6 +309,7 @@ All configuration is stored in the `OAUTHConfig` database table:
 | `oauth_scope` | OAuth scopes | No |
 | `oauth_admin_group` | Admin group name | No |
 | `oauth_sync_teams` | Sync teams on login | No |
+| `oauth_sync_brackets` | Assign brackets from the `bracket` claim (default `off`) | No |
 | `oauth_claim_preferred_username` | Username claim mapping | No |
 | `oauth_claim_email` | Email claim mapping | No |
 | `oauth_claim_affiliation` | Affiliation claim mapping | No |

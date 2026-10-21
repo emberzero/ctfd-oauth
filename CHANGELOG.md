@@ -10,12 +10,14 @@ All notable changes to the CTFd OAuth Plugin are documented in this file.
   - Closes an account-takeover vulnerability where an IdP user could claim a pre-existing CTFd account by registering with the same email.
   - Email changes at the IdP no longer orphan accounts — the same `sub` continues to map to the same CTFd user, and email is now safely synced as a mutable attribute.
   - Logins fail closed when the `sub` claim is missing.
+  - Logins with `email_verified: false` are rejected (claim absent = allowed).
   - Team-mode default scope updated to `openid profile team` so the IdP returns `sub`.
 
 ### ✨ Features
 
 - New config knob `oauth_link_existing_by_email` (default `on`) lets existing CTFd users auto-bind to their OAuth identity on first login. Admins should turn it `off` after the migration window closes.
 - New `oauth_issuer` config field, auto-populated from OIDC discovery (`issuer` field) and exposed in the admin UI for manual setups.
+- New config knob `oauth_sync_brackets` (default `off`) gates bracket assignment from the `bracket` claim. Deployments relying on bracket sync (e.g. ACSC) must turn it `on`.
 - New `oauth_claim_sub` claim mapping (default `sub`) for non-OIDC providers that use a different identifier (e.g. GitHub's `id`).
 
 ### 🗄️ Database

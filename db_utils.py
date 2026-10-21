@@ -20,6 +20,7 @@ class DBUtils:
         {"key": "oauth_scope", "value": ""},
         {"key": "oauth_admin_group", "value": "CTFd Admins"},
         {"key": "oauth_sync_teams", "value": "off"},
+        {"key": "oauth_sync_brackets", "value": "off"},
         {"key": "oauth_enable_pkce", "value": "off"},
         # OIDC Discovery
         {"key": "oauth_discovery_url", "value": ""},
