@@ -21,8 +21,9 @@ class OAUTHUserLink(db.Model):
     __tablename__ = "oauth_user_link"
 
     id = db.Column(db.Integer, primary_key=True)
-    issuer = db.Column(db.String(length=512), nullable=False, index=True)
-    sub = db.Column(db.String(length=512), nullable=False, index=True)
+    # 255: OIDC caps sub at 255 ASCII chars; (issuer, sub) must fit MySQL utf8mb4 3072-byte key limit.
+    issuer = db.Column(db.String(length=255), nullable=False, index=True)
+    sub = db.Column(db.String(length=255), nullable=False, index=True)
     user_id = db.Column(
         db.Integer,
         db.ForeignKey("users.id", ondelete="CASCADE"),
